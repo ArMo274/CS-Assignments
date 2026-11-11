@@ -1,142 +1,68 @@
-public class Starship {
-    private static int totships = 0;
-    private static int actships = 0;
-    private static double totfirepow = 0;
+public class CircuitLab {
+    public static void main(String[] args) {
+        LowPass bass = new LowPass("Bass filter", 200, 0.000001);
+        BandPass voice = new BandPass("Voice filter", 300, 3400);
 
-    private String id;
-    private String name;
-    private double shields;
-    private double firepow;
-    private boolean active;
-
-    public Starship(){
-        this("Patrol Frigate", 200, 100);
-    }
-
-    public Starship(String name, double shields, double firepow){
-        totships++;
-        id = "SHIP-" + totships;
-        this.name = name;
-        this.shields = shields;
-        this.firepow = firepow;
-        active = true;
-
-        actships++;
-        totfirepow += firepow;
-    }
-
-    public String getId(){
-        return id;
-    }
-    public String getName() {
-        return name;
-    }
-
-    public double getShields(){
-        return shields;
-    }
-    public double getFirepow(){
-        return firepow;
-    }
-    public boolean isActive() {
-        return active;
-    }
-
-    public void setName(String name){
-        if(name == null || name.trim().isEmpty()){
-            System.out.println("Error: name can't be empty");
-            return;
+        Filter[] filters = {bass, voice};
+        for (Filter f : filters) {
+            System.out.println(f.getLabel() + " at 100 Hz: " + f.passes(100));
+            System.out.println(f.getLabel() + " at 1000 Hz: " + f.passes(1000));
         }
-        this.name = name;
-    }
-
-    public void setShields(double shields) {
-        if(shields < 0){
-            System.out.println("Error: shields can't be negative");
-            return;
-        }
-        this.shields = shields;
-    }
-
-    public void setFirepow(double firepow){
-        if(firepow <= 0) {
-            System.out.println("Error: firepower must be greater than 0");
-            return;
-        }
-        if(active){
-            totfirepow = totfirepow - this.firepow + firepow;
-        }
-        this.firepow = firepow;
-    }
-
-    public void upgrade(double amt){
-        if(!active){
-            System.out.println(id + " is not active, can't upgrade");
-            return;
-        }
-        setFirepow(firepow + amt);
-    }
-
-    public void takeDamage(double dmg){
-        shields -= dmg;
-        if(shields < 0){
-            shields = 0;
-        }
-    }
-
-    public void deactivate(){
-        if(!active) {
-            System.out.println(id + " is already inactive");
-            return;
-        }
-        active = false;
-        actships--;
-        totfirepow -= firepow;
-        System.out.println(id + " has been deactivated");
-    }
-
-    public String toString(){
-        return id + " | " + name + " | Shields: " + shields
-                + " | Firepower: " + firepow + " | Active: " + active;
-    }
-
-    public static void printFleet(){
-        System.out.println("Total ships: " + totships + " | Active: "
-                + actships + " | Total firepower: " + totfirepow);
-    }
-
-    public static void main(String[] args){
-        System.out.println("--- Test 1: Creating ships ---");
-        Starship s1 = new Starship();
-        Starship s2 = new Starship("Titan", 800, 450);
-        Starship s3 = new Starship("Phantom", 300, 275);
-        System.out.println(s1);
-        System.out.println(s2);
-        System.out.println(s3);
-        printFleet();
-
-        System.out.println("\n--- Test 2: Invalid changes ---");
-        s2.setFirepow(-50);
-        s3.setName("");
-        s1.setShields(-10);
-        System.out.println(s1);
-        System.out.println(s2);
-        System.out.println(s3);
-        printFleet();
-
-        System.out.println("\n--- Test 3: Upgrading a ship ---");
-        System.out.println("Upgrading Titan by 150");
-        s2.upgrade(150);
-        System.out.println(s2);
-        printFleet();
-
-        System.out.println("\n--- Test 4: Deactivating a ship ---");
-        s3.deactivate();
-        System.out.println(s3);
-        printFleet();
-
-        System.out.println("\n--- Test 5: Deactivating again ---");
-        s3.deactivate();
-        printFleet();
+        System.out.printf("Bass filter resistor: %.1f ohms%n", bass.resistorOhms());
+        System.out.println("Voice filter bandwidth: " + voice.bandwidthHz() + " Hz");
     }
 }
+
+abstract class Filter {
+    private final String label;
+    protected final double cutoffHz;
+
+    protected Filter(String label, double cutoffHz) {
+        if (!(cutoffHz > 0) || !Double.isFinite(cutoffHz))
+            throw new IllegalArgumentException("Cutoff must be positive and finite");
+        this.label = label;
+        this.cutoffHz = cutoffHz;
+    }
+
+    public String getLabel() { return label; }
+
+    // Simple passband model. Real filters roll off gradually.
+    public abstract boolean passes(double frequencyHz);
+}
+
+class LowPass extends Filter {
+    private final double capacitanceF;
+
+    public LowPass(String label, double cutoffHz, double capacitanceF) {
+        super(label, cutoffHz);
+        if (!(capacitanceF > 0) || !Double.isFinite(capacitanceF))
+            throw new IllegalArgumentException("Capacitance must be positive and finite");
+        this.capacitanceF = capacitanceF;
+    }
+
+    public double resistorOhms() {
+        return 1 / (2 * Math.PI * cutoffHz * capacitanceF);
+    }
+    @Override
+    public boolean passes(double frequencyHz) {
+        return frequencyHz >= 0 && frequencyHz <= cutoffHz;
+    }
+}
+
+class BandPass extends Filter {
+    private final double upperHz;
+
+    public BandPass(String label, double lowerHz, double upperHz) {
+        super(label, lowerHz);
+        if (!(upperHz > lowerHz) || !Double.isFinite(upperHz))
+            throw new IllegalArgumentException("Upper cutoff must exceed lower cutoff and be finite");
+        this.upperHz = upperHz;
+    }
+    public double bandwidthHz() { return upperHz - cutoffHz; }
+
+    @Override
+    public boolean passes(double frequencyHz) {
+        return frequencyHz >= cutoffHz && frequencyHz <= upperHz;
+    }
+}
+
