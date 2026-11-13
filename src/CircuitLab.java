@@ -1,68 +1,75 @@
+abstract class BaseEntity {
+    private final String name;
+
+    public BaseEntity(String name) {
+        this.name = name;
+    }
+
+
+
+    public String getName() {
+        return name;
+
+    }
+
+    public abstract double resistance();
+}
+class SeriesPair extends BaseEntity {
+    private final double firstOhms;
+    private final double secondOhms;
+
+    public SeriesPair(double firstOhms, double secondOhms) {
+        super("Series pair");
+        this.firstOhms = firstOhms;
+        this.secondOhms = secondOhms;
+    }
+
+    @Override
+    public double resistance() {
+        return firstOhms + secondOhms;
+    }
+
+    public double resistance(double extraOhms) {
+        return resistance() + extraOhms;
+    }
+}
+
+class ParallelPair extends BaseEntity {
+
+    private final double firstOhms;
+    private final double secondOhms;
+
+    public ParallelPair(double firstOhms, double secondOhms) {
+        super("Parallel pair");
+        this.firstOhms = firstOhms;
+        this.secondOhms = secondOhms;
+    }
+
+    @Override
+    public double resistance() {
+        return 1.0 / (1.0 / firstOhms + 1.0 / secondOhms);
+    }
+}
+
 public class CircuitLab {
     public static void main(String[] args) {
-        LowPass bass = new LowPass("Bass filter", 200, 0.000001);
-        BandPass voice = new BandPass("Voice filter", 300, 3400);
 
-        Filter[] filters = {bass, voice};
-        for (Filter f : filters) {
-            System.out.println(f.getLabel() + " at 100 Hz: " + f.passes(100));
-            System.out.println(f.getLabel() + " at 1000 Hz: " + f.passes(1000));
+        SeriesPair series = new SeriesPair(100, 300);
+        ParallelPair parallel = new ParallelPair(100, 300);
+        BaseEntity[] circuits = {series, parallel};
+
+        System.out.println("Overriding with 100-ohm and 300-ohm resistors");
+        for (BaseEntity circuit : circuits) {
+            System.out.printf("%s = %.1f ohms%n", circuit.getName(), circuit.resistance());
+
+
         }
-        System.out.printf("Bass filter resistor: %.1f ohms%n", bass.resistorOhms());
-        System.out.println("Voice filter bandwidth: " + voice.bandwidthHz() + " Hz");
+
+        System.out.println("Overloading with an extra 50-ohm resistor");
+        System.out.printf("Series total = %.1f ohms%n", series.resistance(50));
+
     }
 }
 
-abstract class Filter {
-    private final String label;
-    protected final double cutoffHz;
 
-    protected Filter(String label, double cutoffHz) {
-        if (!(cutoffHz > 0) || !Double.isFinite(cutoffHz))
-            throw new IllegalArgumentException("Cutoff must be positive and finite");
-        this.label = label;
-        this.cutoffHz = cutoffHz;
-    }
-
-    public String getLabel() { return label; }
-
-    // Simple passband model. Real filters roll off gradually.
-    public abstract boolean passes(double frequencyHz);
-}
-
-class LowPass extends Filter {
-    private final double capacitanceF;
-
-    public LowPass(String label, double cutoffHz, double capacitanceF) {
-        super(label, cutoffHz);
-        if (!(capacitanceF > 0) || !Double.isFinite(capacitanceF))
-            throw new IllegalArgumentException("Capacitance must be positive and finite");
-        this.capacitanceF = capacitanceF;
-    }
-
-    public double resistorOhms() {
-        return 1 / (2 * Math.PI * cutoffHz * capacitanceF);
-    }
-    @Override
-    public boolean passes(double frequencyHz) {
-        return frequencyHz >= 0 && frequencyHz <= cutoffHz;
-    }
-}
-
-class BandPass extends Filter {
-    private final double upperHz;
-
-    public BandPass(String label, double lowerHz, double upperHz) {
-        super(label, lowerHz);
-        if (!(upperHz > lowerHz) || !Double.isFinite(upperHz))
-            throw new IllegalArgumentException("Upper cutoff must exceed lower cutoff and be finite");
-        this.upperHz = upperHz;
-    }
-    public double bandwidthHz() { return upperHz - cutoffHz; }
-
-    @Override
-    public boolean passes(double frequencyHz) {
-        return frequencyHz >= cutoffHz && frequencyHz <= upperHz;
-    }
-}
 
